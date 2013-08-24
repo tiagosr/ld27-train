@@ -13,24 +13,22 @@
 ----------
 
 GameState = require "hump.gamestate"
+Camera = require "hump.camera"
 Timer = require "hump.timer"
 Class = require "hump.class"
 
-TiledLoader = require "tiledloader.Loader"
+local anim8 = require "anim8.anim8"
+
+local TiledLoader = require "tiledloader.Loader"
 TiledLoader.path = "stages/"
-HC = require "hardoncollider"
 
-on_collision_start = function(obj_a, obj_b)
-end
+--- game state declarations
+local titlescreen = {}
+local game = {}
 
-on_collision_end = function(obj_a, obj_b)
-end
 
-Collider = HC(100, on_collision_start, on_collision_end)
 
-titlescreen = {}
-
-font = {}
+local font = {}
 
 function titlescreen:enter(from)
 	-- self.title_img = love.graphics.newImage("title.png")
@@ -48,41 +46,90 @@ function titlescreen:update()
 end
 
 function titlescreen:keyreleased(key, code)
-	if key=='enter' then
+	if key=='return' then
 		GameState.switch(game)
 	elseif key =='escape' then
 		love.event.push('quit')
 	end
+	io.stdout:write(key)
 end
 
-Animation = Class{
-	init = function(self, image, frames)
-		self.frames = frames
-		self.image = image
-		self.current_frame = 1
-		self.current_frame_counter = self.frames[self.current_frame]['counter']
-	end,
-	set_frame = function(self, frame)
-		self.current_frame = frame
-	end,
-	draw = function(self)
-		self.image:draw()
-	end,
-}
-
 Dude = Class{
-	init = function(self)
-		
+	init = function(self, x, y, z)
+		self.spritesheet = love.graphics.newImage("gfx/dude/dude.png")
+		local g = anim8.newGrid(32, 32, self.spritesheet:getWidth(), self.spritesheet:getHeight())
+		self.animations = {
+			walking = anim8.newAnimation(g('1-4',1), 0.1),
+			running = anim8.newAnimation(g('1-4',1), 0.1),
+			knocked_over = anim8.newAnimation(g('1-4',1), 0.1)
+		}
+		self.current_animation = self.animations.walking
+		self.current_animation_name = 'walking'
+		self:setup(x, y, z)
+	end,
+	setup = function(self, x, y, z)
+		self.x = x
+		self.y = y
+		self.z = z
+		self.vx = 0
+		self.vy = 0
+		self.vz = 0
+		self.active = true
 	end,
 	draw = function(self)
+		self.current_animation:draw(self.spritesheet, self.x, self.y)
+	end,
+	set_animation = function(self, anim_name)
+		if self.current_animation_name ~= anim_name then
+			self.current_animation = self.animations[anim_name]
+			self.current_animation:gotoFrame(1)
+		end
 	end,
 	update = function(self, dt)
+		if self.active then
+			if love.keyboard.isDown('up') then
+				self.vy = -10
+			end
+			if love.keyboard.isDown('down') then
+				self.vy = 10
+			end
+		end
+
+		self.x = self.x + (self.vx * dt)
+		self.y = self.y + (self.vy * dt)
+		self.current_animation:update(dt)
+	end,
+	on_collision_start = function(self, dt, other, mvec_x, mvec_y)
+
+	end,
+	on_collision_end = function(self, dt, other)
 
 	end,
 }
-dude = Dude()
 
-game = {}
+Peasant = Class{
+	init = function(self, spritesheet, x, y, z)
+		self.spritesheet = spritesheet
+		local g = anim8.newGrid(32, 32, spritesheet:getWidth(), spritesheet:getHeight())
+		self.animations = {
+			walking = anim8.newAnimation(g('1-8',1), 0.1),
+			running = anim8.newAnimation(g('1-8',1), 0.1),
+			knocked_over = anim8.newAnimation(g('1-8',1), 0.1)
+		}
+		self.current_animation = self.animations.walking
+		self.x = x
+		self.y = y
+		self.z = z
+	end,
+	draw = function(self)
+		self.current_animation:draw(self.spritesheet, self.x, self.y)
+	end,
+	update = function(self, dt)
+		self.current_animation:update(dt)
+	end,
+}
+
+dude = Dude()
 
 -------------[stage object]
 
@@ -90,31 +137,36 @@ Stage = Class{
 	init = function(self, title, file)
 		self.title = title
 		self.file = file
+		self.state = 'limbo'
 	end,
 	setup = function(self)
 		self.map = TiledLoader.load(self.file)
+		self.state = 'init'
 	end,
 	update = function(self, dt)
-
+		if self.state == 'init' then
+		end
 	end,
 	draw = function(self)
-		self.map.draw()
+		self.map:draw()
 	end
 }
 
 stages = {
-	Stage("hello","hello.tmx"),
+	Stage("hello","01-hello.tmx"),
 }
 
 ------------[game state]
 
 function game:draw()
-
+	self.stage:draw()
+	dude:draw()
 end
 
 function game:enter(from)
-	game.stage = 1
-	dude:setup()
+	self.stage = stages[1]
+	self.stage:setup()
+	dude:setup(0, 0)
 end
 
 function game:update(dt)
