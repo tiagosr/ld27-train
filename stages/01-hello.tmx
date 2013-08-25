@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0" orientation="orthogonal" width="100" height="16" tilewidth="16" tileheight="16">
+<map version="1.0" orientation="orthogonal" width="100" height="17" tilewidth="16" tileheight="16">
  <tileset firstgid="1" name="tiles" tilewidth="16" tileheight="16">
   <image source="../gfx/scene/tiles.png" trans="ff00ff" width="320" height="256"/>
   <tile id="40">
@@ -43,9 +43,9 @@
    </properties>
   </tile>
  </tileset>
- <layer name="Tile Layer 1" width="100" height="16">
+ <layer name="Tile Layer 1" width="100" height="17">
   <data encoding="base64" compression="zlib">
-   eJztl7sVgCAUQxF1BH8jqDOo+29l2gfUJEWKnHduBUVukZxSGpEJGZDcgW/kQs7izp3eV+YV2ZAdWTrxh7zIU9yD9B8lZnXCjrSZ1Qk70mZmJ+xIzcxO2JGa2Z2wI5HZnbAjkRU6YUe4+8OO6O0PO6K1P+yI3v6wI1r7w47o7Q87orU/7EjkHx0CXQE=
+   eJztk8kNwjAURM0mRAFsogKgBqCGsJWAgBKAFoCWGSmH/Fi2xMGJ5zCHJ+fLE8nS+1M45wrROidwDnAwHE1+790pkzZzA/cA1tnVfF8iXpVJk5EProx8cGXkgysT8/E0vMw/D+9OmbSZf/oh2iPmowt6oA86meY1WIGldw5I3tfUPAQjjwmYghkYZ5p3YAs23jkneV9T8yLgI/eOqCN1H7l3RB2p+2DYEXWk8sGwI+pI5YNlR9SR0gfLjqgjpY8PeOukOL/gB32newY=
   </data>
  </layer>
 </map>

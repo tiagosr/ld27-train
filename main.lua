@@ -68,12 +68,15 @@ local step = 0.005
 		
 Dude = Class{
 	init = function(self, x, y, z)
+		x = x or 0
+		y = y or 0
+		z = z or 0
 		self.spritesheet = love.graphics.newImage("gfx/dude/dude.png")
 		local g = anim8.newGrid(32, 32, self.spritesheet:getWidth(), self.spritesheet:getHeight())
 		self.animations = {
 			walking = anim8.newAnimation(g('1-4',1), 0.1),
 			running = anim8.newAnimation(g('1-4',1), 0.1),
-			jumping = anim8.newAnimation(g('1-1',1), 0.1),
+			jumping = anim8.newAnimation(g('3-3',1), 0.1),
 			knocked_over = anim8.newAnimation(g('1-4',1), 0.1)
 		}
 		self.current_animation = self.animations.running
@@ -94,17 +97,21 @@ Dude = Class{
 		self.gravity = 120
 		self.move_speed = 40
 		self.jump_speed = 60
+		self.y_min = 16 * 8
+		self.y_max = 16 * 16
 	end,
 	draw = function(self)
-		self.current_animation:draw(self.spritesheet, self.x - 16, self.y - 28 - self.z)
+		-- [player is offset in the x direction at half rate from y direction, to correct for perspective and still hit the correct tiles]
+		self.current_animation:draw(self.spritesheet, (self.x - 16) + ((self.y - self.y_min)/2) , self.y - 28 - self.z)
 	end,
 	set_animation = function(self, anim_name)
 		if self.current_animation_name ~= anim_name then
 			self.current_animation = self.animations[anim_name]
 			self.current_animation:gotoFrame(1)
+			self.current_animation_name = anim_name
 		end
 	end,
-	update = function(self, dt)
+	update = function(self, dt, stage)
 		local dp = dt + self.dp;
 		if self.active then
 			self.vy = 0
@@ -139,8 +146,11 @@ Dude = Class{
 				self.vz = 0
 				self.z = 0
 			end
+			if self.y <= self.y_min then self.y = self.y_min end
+			if self.y >= self.y_max then self.y = self.y_max end
 			dp = dp - step
 		end
+		if self.touches_ground then self:set_animation('running') else self:set_animation('jumping') end
 		self.dp = dp
 		self.current_animation:update(dt)
 	end,
@@ -151,8 +161,8 @@ Peasant = Class{
 		self.spritesheet = spritesheet
 		local g = anim8.newGrid(32, 32, spritesheet:getWidth(), spritesheet:getHeight())
 		self.animations = {
-			walking = anim8.newAnimation(g('1-8',1), 0.1),
-			running = anim8.newAnimation(g('1-8',1), 0.1),
+			walking = anim8.newAnimation(g('1-8',1), 0.05),
+			running = anim8.newAnimation(g('1-8',1), 0.05),
 			knocked_over = anim8.newAnimation(g('1-8',1), 0.1)
 		}
 		self.current_animation = self.animations.walking
@@ -168,7 +178,7 @@ Peasant = Class{
 	end,
 }
 
-dude = Dude(0, 0, 0)
+dude = Dude()
 
 -------------[stage object]
 
@@ -213,19 +223,19 @@ end
 function game:enter(from)
 	self.stage = stages[1]
 	self.stage:setup()
-	dude:setup(0, 0)
+	dude:setup(0, 16*12, 0)
 	self.camera = Camera()
 	self.camera:zoom(3)
 end
 
 function game:update(dt)
-	dude:update(dt)
-	self.camera:lookAt(dude.x, dude.y)
+	dude:update(dt, self.stage)
+	self.camera:lookAt(dude.x + 30 + ((dude.y - (16*8))/2), 16*10)
 end
 
 function game:keyreleased(key, scan)
 	if key == 'escape' then
-
+		GameState.switch(titlescreen)
 	end
 end
 
