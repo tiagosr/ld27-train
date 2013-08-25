@@ -34,7 +34,7 @@ end
 
 --- game state declarations
 local titlescreen = {}
-local game = {}
+local game = {time_remaining = 11.0}
 
 
 
@@ -232,24 +232,38 @@ function game:draw()
 	self.camera:attach()
 	self:draw_elements()
 	self.camera:detach()
-	love.graphics.print("tile "..tile_id, 10, 10)
+	love.graphics.print(string.format("time remaining: %.2f",math.min(10, self.time_remaining)), 520, 10)
 end
 function game:draw_elements()
 	self.stage:draw(self.camera)
 	dude:draw()
 end
-
 function game:enter(from)
 	self.stage = stages[1]
+	self:start_stage()
+end
+function game:start_stage()
 	self.stage:setup()
 	dude:setup(0, 16*12, 0)
 	self.camera = Camera()
 	self.camera:zoom(3)
+	self.camera_limits = {x1 = 160, x2=(self.stage.map.width+1)*16 - 80}
+	self.timer_remaining = 11.0 -- a bit of time at the beginning of a game
+	self.timer_active = true
+	self.state = 'active'
 end
 
 function game:update(dt)
 	dude:update(dt, self.stage)
-	self.camera:lookAt(dude.x + 30 + ((dude.y - (16*8))/2), 16*10)
+	local dx = math.max(self.camera_limits.x1, math.min(dude.x + 30 + ((dude.y - (16*8))/2), self.camera_limits.x2))
+	self.camera:lookAt(dx, 16*10)
+	if self.state == 'active' then
+		self.time_remaining = self.time_remaining - dt
+		if self.time_remaining <= 0 then
+			self.time_remaining = 0
+			self.state = 'lost'
+		end
+	end
 end
 
 function game:keyreleased(key, scan)
