@@ -22,6 +22,16 @@ local anim8 = require "anim8.anim8"
 local TiledLoader = require "tiledloader.Loader"
 TiledLoader.path = "stages/"
 
+local old_newImage = love.graphics.newImage
+
+--- me loves me some nearest-neighbour sampling
+
+love.graphics.newImage = function(filename)
+	local img = old_newImage(filename)
+	img:setFilter('nearest','nearest')
+	return img
+end
+
 --- game state declarations
 local titlescreen = {}
 local game = {}
@@ -51,9 +61,11 @@ function titlescreen:keyreleased(key, code)
 	elseif key =='escape' then
 		love.event.push('quit')
 	end
-	io.stdout:write(key)
 end
 
+
+local step = 0.005
+		
 Dude = Class{
 	init = function(self, x, y, z)
 		self.spritesheet = love.graphics.newImage("gfx/dude/dude.png")
@@ -63,8 +75,8 @@ Dude = Class{
 			running = anim8.newAnimation(g('1-4',1), 0.1),
 			knocked_over = anim8.newAnimation(g('1-4',1), 0.1)
 		}
-		self.current_animation = self.animations.walking
-		self.current_animation_name = 'walking'
+		self.current_animation = self.animations.running
+		self.current_animation_name = 'running'
 		self:setup(x, y, z)
 	end,
 	setup = function(self, x, y, z)
@@ -75,6 +87,8 @@ Dude = Class{
 		self.vy = 0
 		self.vz = 0
 		self.active = true
+		self.dp = 0
+		self.speed = 60
 	end,
 	draw = function(self)
 		self.current_animation:draw(self.spritesheet, self.x, self.y)
@@ -86,24 +100,30 @@ Dude = Class{
 		end
 	end,
 	update = function(self, dt)
+		local dp = dt + self.dp;
 		if self.active then
+			self.vy = 0
 			if love.keyboard.isDown('up') then
-				self.vy = -10
+				self.vy = -30
 			end
 			if love.keyboard.isDown('down') then
-				self.vy = 10
+				self.vy = self.vy + 30
+			end
+			self.vx = 0
+			if love.keyboard.isDown('left') then
+				self.vx = -30
+			end
+			if love.keyboard.isDown('right') then
+				self.vx = self.vx + 30
 			end
 		end
-
-		self.x = self.x + (self.vx * dt)
-		self.y = self.y + (self.vy * dt)
+		while dp > step do
+			self.x = self.x + ((self.speed + self.vx) * step)
+			self.y = self.y + (self.vy * step)
+			dp = dp - step
+		end
+		self.dp = dp
 		self.current_animation:update(dt)
-	end,
-	on_collision_start = function(self, dt, other, mvec_x, mvec_y)
-
-	end,
-	on_collision_end = function(self, dt, other)
-
 	end,
 }
 
@@ -147,7 +167,10 @@ Stage = Class{
 		if self.state == 'init' then
 		end
 	end,
-	draw = function(self)
+	draw = function(self, camera)
+		local x1, y1 = camera:worldCoords(0,0)
+		local x2, y2 = camera:worldCoords(love.graphics.getWidth(), love.graphics.getHeight())
+		self.map:setDrawRange(x1, y1, x2, y2)
 		self.map:draw()
 	end
 }
@@ -159,7 +182,12 @@ stages = {
 ------------[game state]
 
 function game:draw()
-	self.stage:draw()
+	self.camera:attach()
+	self:draw_elements()
+	self.camera:detach()
+end
+function game:draw_elements()
+	self.stage:draw(self.camera)
 	dude:draw()
 end
 
@@ -167,17 +195,26 @@ function game:enter(from)
 	self.stage = stages[1]
 	self.stage:setup()
 	dude:setup(0, 0)
+	self.camera = Camera()
+	self.camera:zoom(3)
 end
 
 function game:update(dt)
 	dude:update(dt)
+	self.camera:lookAt(dude.x, dude.y)
 end
 
+function game:keyreleased(key, scan)
+	if key == 'escape' then
+
+	end
+end
 
 -----------[löve setup]
 
 function love.load()
 	font = love.graphics.setNewFont("gfx/font/ARCADEPI.TTF", 20)
+
 	GameState.registerEvents()
 	GameState.switch(titlescreen)
 end
