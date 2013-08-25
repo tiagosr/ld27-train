@@ -34,7 +34,7 @@ end
 
 --- game state declarations
 local titlescreen = {}
-local game = {time_remaining = 11.0}
+local game = {}
 
 
 
@@ -80,8 +80,9 @@ Dude = Class{
 			jumping = anim8.newAnimation(g('3-3',1), 0.1),
 			knocked_over = anim8.newAnimation(g('1-4',1), 0.1)
 		}
-		self.current_animation = self.animations.running
-		self.current_animation_name = 'running'
+		self.sounds = {
+			jump = love.audio.newSource('sfx/jump.wav', 'static'),
+		}
 		self:setup(x, y, z)
 	end,
 	setup = function(self, x, y, z)
@@ -102,6 +103,9 @@ Dude = Class{
 		self.jump_speed = 100
 		self.y_min = 16 * 8
 		self.y_max = 16 * 16
+		self.inside_train = false
+		self.current_animation = self.animations.running
+		self.current_animation_name = 'running'
 	end,
 	draw = function(self)
 		-- [player is offset in the x direction at half rate from y direction, to correct for perspective and still hit the correct tiles]
@@ -114,7 +118,13 @@ Dude = Class{
 			self.current_animation_name = anim_name
 		end
 	end,
-	update = function(self, dt, stage)
+	get_tile = function(self, stage)
+		local toffx = math.floor((self.y-self.y_min)/32)
+		local tx = math.max(1, math.min(math.floor(self.x/16)+toffx,stage.map.width-1))
+		local ty = math.max(1, math.min(math.floor(self.y/16), stage.map.height-1))
+		return tx, ty
+	end,
+	update = function(self, dt, stage, train)
 		local dp = dt + self.dp;
 		if self.active then
 			self.vy = 0
@@ -136,17 +146,29 @@ Dude = Class{
 				if love.keyboard.isDown('z') then
 					self.vz = self.jump_speed
 					self.touches_ground = false
+					self.sounds.jump:rewind()
+					self.sounds.jump:play()
 				end
 			end
 		end
 		local layer = stage.map.layers['ground']
 		while dp >= step do
-			if self.touches_ground then
+			local door_test = train:test_dude_door(self)
+			if door_test == 'in' then
+				self.active = false
+				self.inside_train = true
+			elseif door_test == 'out' then
+				self.active = false
+				self.vvx = 0
+				self.inside_train = false
+			else
+
+			end
+			io.stdout:write(""..tostring(door_test).."\n")
+			if self.active and self.touches_ground then
 				self.vvx = self.vx + self.speed
 				self.vvy = self.vy
-				local toffx = math.floor((self.y-self.y_min)/32)
-				local tx = math.max(1, math.min(math.floor(self.x/16)+toffx,stage.map.width-1))
-				local ty = math.max(1, math.min(math.floor(self.y/16), stage.map.height-1))
+				tx, ty = self:get_tile(stage)
 				tile_id = layer:get(tx, ty).id
 				for key, prop in pairs(layer:get(tx, ty).properties) do
 					if key == 'slow' then
@@ -198,6 +220,54 @@ Peasant = Class{
 
 dude = Dude()
 
+
+-------------[train object]
+
+Train = Class{
+	init = function(self)
+		self.door_close_speed = 10.0
+		self.door_open_width = 32
+		self.top = love.graphics.newImage('gfx/scene/train-top.png')
+		self.mid = love.graphics.newImage('gfx/scene/train-mid.png')
+		self.bottom = love.graphics.newImage('gfx/scene/train-bottom.png')
+		self.door_a = love.graphics.newImage('gfx/scene/train-door-a.png')
+		self.door_b = love.graphics.newImage('gfx/scene/train-door-b.png')
+		self:setup(0, 0)
+	end,
+	setup = function(self, x, y)
+		self.x = x
+		self.y = y
+		self.door_open = 1.0
+	end,
+	test_dude_door = function(self, dude)
+		local y = self.y - dude.y_min
+		if dude.x >= (self.x + (y/2) - 60) then
+			if (dude.y >= self.y - (self.door_open_width * self.door_open)) and (dude.y <= self.y + (self.door_open_width * self.door_open)) then
+				return 'in'
+			end
+			return 'out'
+		else return 'not there' end
+	end,
+	draw_bottom = function(self)
+		love.graphics.draw(self.bottom, self.x - 75, self.y - 196)
+	end,
+	draw_mid = function (self)
+		love.graphics.draw(self.mid, self.x - 75, self.y - 196)
+	end,
+	draw_door_b = function (self)
+		love.graphics.draw(self.door_b, self.x - 18 - (self.door_open_width * self.door_open / 2), self.y - 84 - (self.door_open_width * self.door_open ))
+	end,
+	draw_door_a = function (self)
+		love.graphics.draw(self.door_b, self.x - 18 + (self.door_open_width * self.door_open / 2), self.y + 84 - (self.door_open_width * self.door_open ))		
+	end,
+	draw_top = function(self)
+		love.graphics.draw(self.top, self.x - 75, self.y - 196)
+	end,
+}
+
+train = Train()
+
+
 -------------[stage object]
 
 Stage = Class{
@@ -219,7 +289,13 @@ Stage = Class{
 		local x2, y2 = camera:worldCoords(love.graphics.getWidth(), love.graphics.getHeight())
 		self.map:setDrawRange(x1, y1, x2, y2)
 		self.map:draw()
-	end
+	end,
+	get_object = function(self, objname)
+		for _, obj in pairs(self.map('objects').objects) do
+			if obj.name == objname then return obj end
+		end
+		return nil
+	end,
 }
 
 stages = {
@@ -235,8 +311,19 @@ function game:draw()
 	love.graphics.print(string.format("time remaining: %.2f",math.min(10, self.time_remaining)), 520, 10)
 end
 function game:draw_elements()
+	train:draw_bottom()
 	self.stage:draw(self.camera)
-	dude:draw()
+	train:draw_door_b()
+	train:draw_mid()
+	if dude.inside_train then
+		dude:draw()
+		train:draw_door_a()
+		train:draw_top()
+	else
+		train:draw_door_a()
+		train:draw_top()
+		dude:draw()
+	end
 end
 function game:enter(from)
 	self.stage = stages[1]
@@ -245,16 +332,19 @@ end
 function game:start_stage()
 	self.stage:setup()
 	dude:setup(0, 16*12, 0)
+	local train_obj = self.stage:get_object('train')
+	train_obj.visible = false
+	train:setup(train_obj.x, train_obj.y)
 	self.camera = Camera()
 	self.camera:zoom(3)
 	self.camera_limits = {x1 = 160, x2=(self.stage.map.width+1)*16 - 80}
-	self.timer_remaining = 11.0 -- a bit of time at the beginning of a game
+	self.time_remaining = 11.0 -- a bit of time at the beginning of a game
 	self.timer_active = true
 	self.state = 'active'
 end
 
 function game:update(dt)
-	dude:update(dt, self.stage)
+	dude:update(dt, self.stage, train)
 	local dx = math.max(self.camera_limits.x1, math.min(dude.x + 30 + ((dude.y - (16*8))/2), self.camera_limits.x2))
 	self.camera:lookAt(dx, 16*10)
 	if self.state == 'active' then
@@ -263,6 +353,8 @@ function game:update(dt)
 			self.time_remaining = 0
 			self.state = 'lost'
 		end
+	elseif self.state == 'in' then
+	elseif self.state == 'lost' then
 	end
 end
 
