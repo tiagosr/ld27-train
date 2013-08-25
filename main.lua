@@ -73,6 +73,7 @@ Dude = Class{
 		self.animations = {
 			walking = anim8.newAnimation(g('1-4',1), 0.1),
 			running = anim8.newAnimation(g('1-4',1), 0.1),
+			jumping = anim8.newAnimation(g('1-1',1), 0.1),
 			knocked_over = anim8.newAnimation(g('1-4',1), 0.1)
 		}
 		self.current_animation = self.animations.running
@@ -80,18 +81,22 @@ Dude = Class{
 		self:setup(x, y, z)
 	end,
 	setup = function(self, x, y, z)
-		self.x = x
-		self.y = y
-		self.z = z
+		self.x = x or 0
+		self.y = y or 0
+		self.z = z or 0
 		self.vx = 0
 		self.vy = 0
 		self.vz = 0
 		self.active = true
+		self.touches_ground = (self.z == 0)
 		self.dp = 0
-		self.speed = 60
+		self.speed = 120
+		self.gravity = 120
+		self.move_speed = 40
+		self.jump_speed = 60
 	end,
 	draw = function(self)
-		self.current_animation:draw(self.spritesheet, self.x, self.y)
+		self.current_animation:draw(self.spritesheet, self.x - 16, self.y - 28 - self.z)
 	end,
 	set_animation = function(self, anim_name)
 		if self.current_animation_name ~= anim_name then
@@ -104,22 +109,36 @@ Dude = Class{
 		if self.active then
 			self.vy = 0
 			if love.keyboard.isDown('up') then
-				self.vy = -30
+				self.vy = -self.move_speed
 			end
 			if love.keyboard.isDown('down') then
-				self.vy = self.vy + 30
+				self.vy = self.vy + self.move_speed
 			end
 			self.vx = 0
 			if love.keyboard.isDown('left') then
-				self.vx = -30
+				self.vx = -self.move_speed
 			end
 			if love.keyboard.isDown('right') then
-				self.vx = self.vx + 30
+				self.vx = self.vx + self.move_speed
+			end
+			if self.touches_ground then
+				self.vz = 0
+				if love.keyboard.isDown('z') then
+					self.vz = self.jump_speed
+					self.touches_ground = false
+				end
 			end
 		end
 		while dp > step do
 			self.x = self.x + ((self.speed + self.vx) * step)
 			self.y = self.y + (self.vy * step)
+			self.z = self.z + (self.vz * step)
+			self.vz = self.vz - (self.gravity * step)
+			if self.z <= 0 then
+				self.touches_ground = true
+				self.vz = 0
+				self.z = 0
+			end
 			dp = dp - step
 		end
 		self.dp = dp
@@ -149,7 +168,7 @@ Peasant = Class{
 	end,
 }
 
-dude = Dude()
+dude = Dude(0, 0, 0)
 
 -------------[stage object]
 
