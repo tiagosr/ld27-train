@@ -242,6 +242,8 @@ Train = Class{
 		self.y = y
 		self.door_open = 1.0
 		self.time = 11.0
+		self.counter_time = self.time
+		self.counter_running = true
 		self.door_bell_triggered = false
 		self.door_shut_triggered = false
 	end,
@@ -264,10 +266,12 @@ Train = Class{
 				end
 			end
 		end
+		if self.counter_running then self.counter_time = self.time end
 	end,
 	test_dude_door = function(self, dude)
+		if dude.inside_train then return 'in' end
 		local y = self.y - dude.y_min
-		if dude.x >= (self.x + (y/2) - 60) then
+		if dude.x >= (self.x + (y/2) - 56) then
 			if (dude.y >= self.y - (self.door_open_width * self.door_open)) and (dude.y <= self.y + (self.door_open_width * self.door_open)) then
 				return 'in'
 			end
@@ -334,7 +338,7 @@ function game:draw()
 	self.camera:attach()
 	self:draw_elements()
 	self.camera:detach()
-	love.graphics.print(string.format("time remaining: %.2f",math.min(10, train.time)), 520, 10)
+	love.graphics.print(string.format("time remaining: %.2f",math.min(10, train.counter_time)), 520, 10)
 end
 function game:draw_elements()
 	train:draw_bottom()
@@ -365,7 +369,7 @@ function game:start_stage()
 	self.camera = Camera()
 	self.camera:zoom(3)
 	self.camera_limits = {x1 = 160, x2=(self.stage.map.width+1)*16 - 80}
-	self.time_remaining = 11.0 -- a bit of time at the beginning of a game
+	self.time_remaining = 10.5 -- a bit of time at the beginning of a game
 	self.timer_active = true
 	self.state = 'active'
 end
@@ -373,12 +377,14 @@ end
 function game:update(dt)
 	dude:update(dt, self.stage, train)
 	train:update(dt)
+	if dude.inside_train then 
+		train.counter_running = false
+		self.state = 'in' 
+	end
 	local dx = math.max(self.camera_limits.x1, math.min(dude.x + 30 + ((dude.y - (16*8))/2), self.camera_limits.x2))
 	self.camera:lookAt(dx, 16*10)
 	if self.state == 'active' then
-		self.time_remaining = self.time_remaining - dt
-		if self.time_remaining <= 0 then
-			self.time_remaining = 0
+		if train.time <= 0 then
 			self.state = 'lost'
 		end
 	elseif self.state == 'in' then

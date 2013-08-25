@@ -45,7 +45,7 @@
  </tileset>
  <layer name="ground" width="100" height="17">
   <data encoding="base64" compression="zlib">
-   eJztk8kNwjAURM0mRAFsogKgBqCGsJWAgBKAFoCWGSmH/Fi2xMGJ5zCHJ+fLE8nS+1M45wrROidwDnAwHE1+790pkzZzA/cA1tnVfF8iXpVJk5EProx8cGXkgysT8/E0vMw/D+9OmbSZf/oh2iPmowt6oA86meY1WIGldw5I3tfUPAQjjwmYghkYZ5p3YAs23jkneV9T8yLgI/eOqCN1H7l3RB2p+2DYEXWk8sGwI+pI5YNlR9SR0gfLjqgjpY8PeOukOL/gB32newY=
+   eJztltkNwjAQRMMlRAFcogKgBqCGcJWAgBIILQAtM39sVrEwkZVdpPl4ciyPI0XjlyTPsiwnjXMAxwp2gr3Ib9UaM2kzF3CtQHZ2FtenQK/MpMmwD18Z9uErwz58ZUJ9FIK72HNTa8ykzcT4QZoj1EcbdEAXtIzmS7AAczX2vqyH8tbPEzvvg4FiBMZgAoZG8w1Yg5Uapz/mY/d7mc8q+rA+I7GO1N3v3SHtiPUZqetI3ft5c0g74uGMpHLkXx2Sjnh4j9KRTx/WTvA7UnbE2gn+a5UdeYIHRxfjC7wBvFiHVg==
   </data>
  </layer>
  <objectgroup name="objects" width="100" height="17">
