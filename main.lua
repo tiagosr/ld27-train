@@ -164,7 +164,6 @@ Dude = Class{
 			else
 
 			end
-			io.stdout:write(""..tostring(door_test).."\n")
 			if self.active and self.touches_ground then
 				self.vvx = self.vx + self.speed
 				self.vvy = self.vy
@@ -232,12 +231,39 @@ Train = Class{
 		self.bottom = love.graphics.newImage('gfx/scene/train-bottom.png')
 		self.door_a = love.graphics.newImage('gfx/scene/train-door-a.png')
 		self.door_b = love.graphics.newImage('gfx/scene/train-door-b.png')
+		self.sounds = {
+			bell = love.audio.newSource('sfx/signal.wav', 'static'),
+			door_shut = love.audio.newSource('sfx/close-6.wav', 'static'),
+		}
 		self:setup(0, 0)
 	end,
 	setup = function(self, x, y)
 		self.x = x
 		self.y = y
 		self.door_open = 1.0
+		self.time = 11.0
+		self.door_bell_triggered = false
+		self.door_shut_triggered = false
+	end,
+	update = function(self, dt)
+		self.time = self.time - dt
+		if self.time <= 5.0 and not self.door_bell_triggered then
+			self.sounds.bell:rewind()
+			self.sounds.bell:play()
+			self.door_bell_triggered = true
+		end
+		if self.time <= 0 then
+			self.time = 0
+			self.door_open = self.door_open - (20.0*dt)
+			if self.door_open <= 0 then
+				self.door_open = 0
+				if not self.door_shut_triggered then
+					self.sounds.door_shut:rewind()
+					self.sounds.door_shut:play()
+					self.door_shut_triggered = true
+				end
+			end
+		end
 	end,
 	test_dude_door = function(self, dude)
 		local y = self.y - dude.y_min
@@ -258,7 +284,7 @@ Train = Class{
 		love.graphics.draw(self.door_b, self.x - 18 - (self.door_open_width * self.door_open / 2), self.y - 84 - (self.door_open_width * self.door_open ))
 	end,
 	draw_door_a = function (self)
-		love.graphics.draw(self.door_b, self.x - 18 + (self.door_open_width * self.door_open / 2), self.y + 84 - (self.door_open_width * self.door_open ))		
+		love.graphics.draw(self.door_b, self.x - 1 + (self.door_open_width * self.door_open / 2), self.y - 50 + (self.door_open_width * self.door_open ))		
 	end,
 	draw_top = function(self)
 		love.graphics.draw(self.top, self.x - 75, self.y - 196)
@@ -308,19 +334,20 @@ function game:draw()
 	self.camera:attach()
 	self:draw_elements()
 	self.camera:detach()
-	love.graphics.print(string.format("time remaining: %.2f",math.min(10, self.time_remaining)), 520, 10)
+	love.graphics.print(string.format("time remaining: %.2f",math.min(10, train.time)), 520, 10)
 end
 function game:draw_elements()
 	train:draw_bottom()
 	self.stage:draw(self.camera)
 	train:draw_door_b()
-	train:draw_mid()
 	if dude.inside_train then
 		dude:draw()
 		train:draw_door_a()
+		train:draw_mid()
 		train:draw_top()
 	else
 		train:draw_door_a()
+		train:draw_mid()
 		train:draw_top()
 		dude:draw()
 	end
@@ -345,6 +372,7 @@ end
 
 function game:update(dt)
 	dude:update(dt, self.stage, train)
+	train:update(dt)
 	local dx = math.max(self.camera_limits.x1, math.min(dude.x + 30 + ((dude.y - (16*8))/2), self.camera_limits.x2))
 	self.camera:lookAt(dx, 16*10)
 	if self.state == 'active' then
