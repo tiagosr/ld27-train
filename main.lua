@@ -65,7 +65,8 @@ end
 
 
 local step = 0.005
-		
+local tile_id = 0
+
 Dude = Class{
 	init = function(self, x, y, z)
 		x = x or 0
@@ -88,15 +89,17 @@ Dude = Class{
 		self.y = y or 0
 		self.z = z or 0
 		self.vx = 0
+		self.vvx = 0
 		self.vy = 0
+		self.vvy = 0
 		self.vz = 0
 		self.active = true
 		self.touches_ground = (self.z == 0)
 		self.dp = 0
-		self.speed = 120
-		self.gravity = 120
+		self.speed = 150
+		self.gravity = 240
 		self.move_speed = 40
-		self.jump_speed = 60
+		self.jump_speed = 100
 		self.y_min = 16 * 8
 		self.y_max = 16 * 16
 	end,
@@ -136,9 +139,24 @@ Dude = Class{
 				end
 			end
 		end
-		while dp > step do
-			self.x = self.x + ((self.speed + self.vx) * step)
-			self.y = self.y + (self.vy * step)
+		local layer = stage.map.layers['ground']
+		while dp >= step do
+			if self.touches_ground then
+				self.vvx = self.vx + self.speed
+				self.vvy = self.vy
+				local toffx = math.floor((self.y-self.y_min)/32)
+				local tx = math.max(1, math.min(math.floor(self.x/16)+toffx,stage.map.width-1))
+				local ty = math.max(1, math.min(math.floor(self.y/16), stage.map.height-1))
+				tile_id = layer:get(tx, ty).id
+				for key, prop in pairs(layer:get(tx, ty).properties) do
+					if key == 'slow' then
+						self.vvx = self.vvx / 2
+						self.vvy = self.vvy / 2
+					end
+				end
+			end
+			self.x = self.x + (self.vvx * step)
+			self.y = self.y + (self.vvy * step)
 			self.z = self.z + (self.vz * step)
 			self.vz = self.vz - (self.gravity * step)
 			if self.z <= 0 then
@@ -214,6 +232,7 @@ function game:draw()
 	self.camera:attach()
 	self:draw_elements()
 	self.camera:detach()
+	love.graphics.print("tile "..tile_id, 10, 10)
 end
 function game:draw_elements()
 	self.stage:draw(self.camera)

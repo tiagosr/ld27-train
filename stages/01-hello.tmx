@@ -43,7 +43,7 @@
    </properties>
   </tile>
  </tileset>
- <layer name="Tile Layer 1" width="100" height="17">
+ <layer name="ground" width="100" height="17">
   <data encoding="base64" compression="zlib">
    eJztk8kNwjAURM0mRAFsogKgBqCGsJWAgBKAFoCWGSmH/Fi2xMGJ5zCHJ+fLE8nS+1M45wrROidwDnAwHE1+790pkzZzA/cA1tnVfF8iXpVJk5EProx8cGXkgysT8/E0vMw/D+9OmbSZf/oh2iPmowt6oA86meY1WIGldw5I3tfUPAQjjwmYghkYZ5p3YAs23jkneV9T8yLgI/eOqCN1H7l3RB2p+2DYEXWk8sGwI+pI5YNlR9SR0gfLjqgjpY8PeOukOL/gB32newY=
   </data>
