@@ -43,14 +43,22 @@
    </properties>
   </tile>
  </tileset>
+ <tileset firstgid="321" name="object-tiles" tilewidth="32" tileheight="32">
+  <image source="../gfx/scene/tiles.png" trans="ff00ff" width="320" height="256"/>
+ </tileset>
  <layer name="ground" width="100" height="17">
   <data encoding="base64" compression="zlib">
    eJztltkNwjAQRMMlRAFcogKgBqCGcJWAgBIILQAtM39sVrEwkZVdpPl4ciyPI0XjlyTPsiwnjXMAxwp2gr3Ib9UaM2kzF3CtQHZ2FtenQK/MpMmwD18Z9uErwz58ZUJ9FIK72HNTa8ykzcT4QZoj1EcbdEAXtIzmS7AAczX2vqyH8tbPEzvvg4FiBMZgAoZG8w1Yg5Uapz/mY/d7mc8q+rA+I7GO1N3v3SHtiPUZqetI3ft5c0g74uGMpHLkXx2Sjnh4j9KRTx/WTvA7UnbE2gn+a5UdeYIHRxfjC7wBvFiHVg==
   </data>
  </layer>
  <objectgroup name="objects" width="100" height="17">
-  <object name="train" x="1549" y="175" width="23" height="15">
+  <object name="train" x="1555" y="180" width="23" height="15">
    <ellipse/>
   </object>
+  <object gid="371" x="497" y="144"/>
+  <object gid="371" x="1296" y="187"/>
+  <object gid="372" x="486" y="227"/>
+  <object gid="373" x="1152" y="163"/>
+  <object gid="373" x="1379" y="232"/>
  </objectgroup>
 </map>

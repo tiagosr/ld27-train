@@ -49,6 +49,7 @@ function titlescreen:draw()
 	love.graphics.print("RUN YOU FOOL,", 10, 50, 0, 2.2, 2.2)
 	love.graphics.print("YOU'RE GONNA MISS YOUR TRAIN!", 10, 90)
 	love.graphics.print("Press Enter - and prepare to run!", 10, 200)
+	love.graphics.print("Ludum Dare #27 Jam entry by tiagosr", 150, 550)
 end
 
 function titlescreen:update()
@@ -62,6 +63,34 @@ function titlescreen:keyreleased(key, code)
 		love.event.push('quit')
 	end
 end
+
+gameover = {}
+
+function gameover:keyreleased(key, code)
+	if key == 'return' then
+		GameState.switch(game)
+	elseif key == 'escape' then
+		GameState.switch(titlescreen)
+	end
+end
+
+function gameover:draw()
+	love.graphics.print("YOU LOST YOUR TRAIN", 100, 300, 0, 2.2, 2.2)
+	love.graphics.print("Press Enter to retry, or Escape to exit to title", 100, 380)
+end
+
+win = {}
+
+function win:keyreleased(key, code)
+	GameState.switch(titlescreen)
+end
+
+function win:draw()
+	love.graphics.print("CONGRATULATIONS", 100, 300, 0, 2.2, 2.2)
+	love.graphics.print("You finally arrived on time!", 100, 350, 0)
+	love.graphics.print("Press any key", 100, 400)
+end
+
 
 
 local step = 0.005
@@ -104,12 +133,13 @@ Dude = Class{
 		self.y_min = 16 * 8
 		self.y_max = 16 * 16
 		self.inside_train = false
+		self.visible = true
 		self.current_animation = self.animations.running
 		self.current_animation_name = 'running'
 	end,
 	draw = function(self)
 		-- [player is offset in the x direction at half rate from y direction, to correct for perspective and still hit the correct tiles]
-		self.current_animation:draw(self.spritesheet, (self.x - 16) + ((self.y - self.y_min)/2) , self.y - 28 - self.z)
+		if self.visible then self.current_animation:draw(self.spritesheet, (self.x - 16) + ((self.y - self.y_min)/2) , self.y - 28 - self.z) end
 	end,
 	set_animation = function(self, anim_name)
 		if self.current_animation_name ~= anim_name then
@@ -125,7 +155,7 @@ Dude = Class{
 		return tx, ty
 	end,
 	update = function(self, dt, stage, train)
-		local dp = dt + self.dp;
+		local dp = dt + self.dp
 		if self.active then
 			self.vy = 0
 			if love.keyboard.isDown('up') then
@@ -157,6 +187,10 @@ Dude = Class{
 			if door_test == 'in' then
 				self.active = false
 				self.inside_train = true
+				if self.x >= train.x + 50 then
+					self.visible = false
+					self.vvx = 0
+				end
 			elseif door_test == 'out' then
 				self.active = false
 				self.vvx = 0
@@ -210,7 +244,7 @@ Peasant = Class{
 		self.z = z
 	end,
 	draw = function(self)
-		self.current_animation:draw(self.spritesheet, self.x, self.y)
+		if self.visible == true then self.current_animation:draw(self.spritesheet, self.x, self.y) end
 	end,
 	update = function(self, dt)
 		self.current_animation:update(dt)
@@ -246,6 +280,7 @@ Train = Class{
 		self.counter_running = true
 		self.door_bell_triggered = false
 		self.door_shut_triggered = false
+		self.vel = 0
 	end,
 	update = function(self, dt)
 		self.time = self.time - dt
@@ -263,9 +298,17 @@ Train = Class{
 					self.sounds.door_shut:rewind()
 					self.sounds.door_shut:play()
 					self.door_shut_triggered = true
+					self.vel = 0.1
+				else
+					if self.vel >= 10 then
+
+					end
 				end
 			end
 		end
+		if self.door_shut_triggered then self.vel = self.vel + (self.vel * dt) end
+		self.x = self.x + self.vel/2
+		self.y = self.y + self.vel
 		if self.counter_running then self.counter_time = self.time end
 	end,
 	test_dude_door = function(self, dude)
@@ -330,6 +373,7 @@ Stage = Class{
 
 stages = {
 	Stage("hello","01-hello.tmx"),
+	Stage("hello","01-hello.tmx"),
 }
 
 ------------[game state]
@@ -342,25 +386,31 @@ function game:draw()
 end
 function game:draw_elements()
 	train:draw_bottom()
-	self.stage:draw(self.camera)
 	train:draw_door_b()
 	if dude.inside_train then
 		dude:draw()
 		train:draw_door_a()
 		train:draw_mid()
 		train:draw_top()
+		self.stage:draw(self.camera)
 	else
 		train:draw_door_a()
 		train:draw_mid()
 		train:draw_top()
+		self.stage:draw(self.camera)
 		dude:draw()
 	end
 end
 function game:enter(from)
-	self.stage = stages[1]
-	self:start_stage()
+	self:start_stage(1)
 end
-function game:start_stage()
+function game:start_stage(stage)
+	if stage > #stages then
+		GameState.switch(win)
+		return
+	end
+	self.current_stage = stage
+	self.stage = stages[stage]
 	self.stage:setup()
 	dude:setup(0, 16*12, 0)
 	local train_obj = self.stage:get_object('train')
@@ -387,9 +437,13 @@ function game:update(dt)
 		if train.time <= 0 then
 			self.state = 'lost'
 		end
-	elseif self.state == 'in' then
-	elseif self.state == 'lost' then
-	end
+	elseif train.vel >= 20 then
+		if self.state == 'in' then
+			game:start_stage(self.current_stage+1)
+		elseif self.state == 'lost' then
+			GameState.push(gameover)
+		end
+	end	
 end
 
 function game:keyreleased(key, scan)
