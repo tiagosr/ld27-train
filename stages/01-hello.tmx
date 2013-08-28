@@ -55,10 +55,10 @@
   <object name="train" x="1555" y="180" width="23" height="15">
    <ellipse/>
   </object>
-  <object gid="371" x="497" y="144"/>
-  <object gid="371" x="1296" y="187"/>
-  <object gid="372" x="486" y="227"/>
-  <object gid="373" x="1152" y="163"/>
-  <object gid="373" x="1379" y="232"/>
+  <object type="VendingMachine" gid="371" x="497" y="144"/>
+  <object type="VendingMachine" gid="371" x="1296" y="187"/>
+  <object type="VendingMachine" gid="372" x="486" y="227"/>
+  <object type="VendingMachine" gid="373" x="1152" y="163"/>
+  <object type="VendingMachine" gid="373" x="1379" y="232"/>
  </objectgroup>
 </map>

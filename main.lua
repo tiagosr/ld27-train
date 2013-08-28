@@ -48,8 +48,13 @@ end
 function titlescreen:draw()
 	love.graphics.print("RUN YOU FOOL,", 10, 50, 0, 2.2, 2.2)
 	love.graphics.print("YOU'RE GONNA MISS YOUR TRAIN!", 10, 90)
-	love.graphics.print("Press Enter - and prepare to run!", 10, 200)
+
+	love.graphics.print("Press Enter - and prepare to run!", 10, 250)
+	love.graphics.print("Z to jump, arrows to deviate from obstacles!", 10, 300)
+	
+
 	love.graphics.print("Ludum Dare #27 Jam entry by tiagosr", 150, 550)
+
 end
 
 function titlescreen:update()
@@ -134,12 +139,18 @@ Dude = Class{
 		self.y_max = 16 * 16
 		self.inside_train = false
 		self.visible = true
+
+		self.solid = true
+		self.blink_value = true
+		
 		self.current_animation = self.animations.running
 		self.current_animation_name = 'running'
+		self.out_of_control_timer = 0
 	end,
 	draw = function(self)
 		-- [player is offset in the x direction at half rate from y direction, to correct for perspective and still hit the correct tiles]
-		if self.visible then self.current_animation:draw(self.spritesheet, (self.x - 16) + ((self.y - self.y_min)/2) , self.y - 28 - self.z) end
+		if self.visible and (self.solid or self.blink_value) then self.current_animation:draw(self.spritesheet, (self.x - 16) + ((self.y - self.y_min)/2) , self.y - 28 - self.z) end
+		self.blink_value = not self.blink_value
 	end,
 	set_animation = function(self, anim_name)
 		if self.current_animation_name ~= anim_name then
@@ -192,13 +203,14 @@ Dude = Class{
 					self.vvx = 0
 				end
 			elseif door_test == 'out' then
-				self.active = false
-				self.vvx = 0
-				self.inside_train = false
+				self.out_of_control_timer = 2
+				self.solid = false
+				self.vvx = -20
+				--self.inside_train = false
 			else
 
 			end
-			if self.active and self.touches_ground then
+			if self.active and self.touches_ground and (self.out_of_control_timer < 0.01) then
 				self.vvx = self.vx + self.speed
 				self.vvy = self.vy
 				tx, ty = self:get_tile(stage)
@@ -210,6 +222,7 @@ Dude = Class{
 					end
 				end
 			end
+
 			self.x = self.x + (self.vvx * step)
 			self.y = self.y + (self.vvy * step)
 			self.z = self.z + (self.vz * step)
@@ -221,9 +234,14 @@ Dude = Class{
 			end
 			if self.y <= self.y_min then self.y = self.y_min end
 			if self.y >= self.y_max then self.y = self.y_max end
+			self.out_of_control_timer = self.out_of_control_timer - step
+			if self.out_of_control_timer < 0 then self.out_of_control_timer = 0 end
 			dp = dp - step
 		end
-		if self.touches_ground then self:set_animation('running') else self:set_animation('jumping') end
+		if self.active and (self.out_of_control_timer < 0.01) then
+			self.solid = true
+			if self.touches_ground then self:set_animation('running') else self:set_animation('jumping') end
+		end
 		self.dp = dp
 		self.current_animation:update(dt)
 	end,
@@ -251,7 +269,57 @@ Peasant = Class{
 	end,
 }
 
-dude = Dude()
+Obstacle = Class{
+	init = function(self, obj, x, y, width, depth, height, offx, offy, spritesheet, animations, starting_animation)
+		obj.visible = false
+		self.x = x
+		self.y = y
+		self.offx = offx
+		self.offy = offy
+		self.width = width
+		self.depth = depth
+		self.height = height
+		self.visible = true
+		self.spritesheet = spritesheet
+		self.animations = animations
+		self.current_animation_name = starting_animation or 'default'
+		self.current_animation = animations[self.current_animation_name]
+	end,
+	set_animation = function(self, anim_name)
+		if self.current_animation_name ~= anim_name then
+			self.current_animation = self.animations[anim_name]
+			self.current_animation:gotoFrame(1)
+			self.current_animation_name = anim_name
+		end
+	end,
+	collide_with_dude = function(self, dude)
+		local dx = dude.x + ((dude.y - dude.y_min) / 2)
+		return (dx > self.x) and (dx < (self.x+self.width)) and (dude.y > self.y) and (dude.y < (self.y + self.height))
+	end,
+	update = function(self, dt)
+		self.current_animation:update(dt)
+	end,
+	draw_before_dude = function(self, dude)
+		if (self.y <= dude.y) and self.visible then self.current_animation:draw(self.spritesheet, self.x + self.offx, self.y+self.offy) end
+	end,
+	draw_after_dude = function(self, dude)
+		if (self.y > dude.y) and self.visible then self.current_animation:draw(self.spritesheet, self.x + self.offx, self.y+self.offy) end
+	end
+}
+
+local tiles_image = love.graphics.newImage('gfx/scene/tiles.png')
+local tiles_grid = anim8.newGrid(32, 32, tiles_image:getWidth(), tiles_image:getHeight())
+
+VendingMachine = Class{
+	__includes = Obstacle,
+	init = function(self, obj, x, y)
+		Obstacle.init(self, obj, x, y, 32, 16, 24, -16, -16, tiles_image, {
+				default = anim8.newAnimation(tiles_grid(1, 6), 1)
+			}, 'default')
+	end,
+}
+
+local dude = Dude()
 
 
 -------------[train object]
@@ -338,9 +406,23 @@ Train = Class{
 	end,
 }
 
-train = Train()
+local train = Train()
 
 
+local obj_type_map = {
+	VendingMachine = VendingMachine,
+
+}
+function load_objects(map)
+	local obj_list = {}
+	for _,obj in pairs(map('objects').objects) do
+		if obj_type_map[obj.type] ~= nil then
+			obj_list[#obj_list+1] = obj_type_map[obj.type](obj, obj.x, obj.y)
+			io.stdout:write("created object of type "..obj.type.."\n")
+		end
+	end
+	return obj_list
+end
 -------------[stage object]
 
 Stage = Class{
@@ -352,6 +434,7 @@ Stage = Class{
 	setup = function(self)
 		self.map = TiledLoader.load(self.file)
 		self.state = 'init'
+		self.objects = load_objects(self.map)
 	end,
 	update = function(self, dt)
 		if self.state == 'init' then
@@ -363,17 +446,33 @@ Stage = Class{
 		self.map:setDrawRange(x1, y1, x2, y2)
 		self.map:draw()
 	end,
+	draw_sprites = function(self, dude)
+		for _,object in ipairs(self.objects) do
+			object:draw_before_dude(dude)
+		end
+		dude:draw()
+		for _,object in ipairs(self.objects) do
+			object:draw_after_dude(dude)
+		end
+	end,
 	get_object = function(self, objname)
 		for _, obj in pairs(self.map('objects').objects) do
 			if obj.name == objname then return obj end
 		end
 		return nil
 	end,
+	get_objects_of_type = function(self, objname)
+		local result = {}
+		for _, obj in pairs(self.map('objects').objects) do
+			if obj.type == objname then result[#result+1] = obj end
+		end
+		return result
+	end,
 }
 
 stages = {
-	Stage("hello","01-hello.tmx"),
-	Stage("hello","01-hello.tmx"),
+	Stage("Cantagalo","01-hello.tmx"),
+	Stage("Saens Peña","02-saens-pena.tmx"),
 }
 
 ------------[game state]
@@ -388,7 +487,7 @@ function game:draw_elements()
 	train:draw_bottom()
 	train:draw_door_b()
 	if dude.inside_train then
-		dude:draw()
+		self.stage:draw_sprites(dude)
 		train:draw_door_a()
 		train:draw_mid()
 		train:draw_top()
@@ -398,7 +497,8 @@ function game:draw_elements()
 		train:draw_mid()
 		train:draw_top()
 		self.stage:draw(self.camera)
-		dude:draw()
+		self.stage:draw_sprites(dude)
+		--dude:draw()
 	end
 end
 function game:enter(from)
@@ -415,7 +515,7 @@ function game:start_stage(stage)
 	dude:setup(0, 16*12, 0)
 	local train_obj = self.stage:get_object('train')
 	train_obj.visible = false
-	train:setup(train_obj.x, train_obj.y)
+	train:setup(train_obj.x - ((train_obj.y - (16*8))/2) + 28, train_obj.y)
 	self.camera = Camera()
 	self.camera:zoom(3)
 	self.camera_limits = {x1 = 160, x2=(self.stage.map.width+1)*16 - 80}
