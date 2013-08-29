@@ -69,6 +69,16 @@ function titlescreen:keyreleased(key, code)
 	end
 end
 
+function titlescreen:joystickreleased(joy, button)
+	if joy == 1 then
+		if button == 8 or button == 1 then
+			GameState.switch(game)
+		end
+	end
+end
+
+pause = {}
+
 gameover = {}
 
 function gameover:keyreleased(key, code)
@@ -169,22 +179,25 @@ Dude = Class{
 		local dp = dt + self.dp
 		if self.active then
 			self.vy = 0
-			if love.keyboard.isDown('up') then
+			local ax = love.joystick.getAxis(1, 1)
+			local ay = love.joystick.getAxis(1, 2)
+			local hat = love.joystick.getHat(1, 1)
+			if love.keyboard.isDown('up') or (ay < -0.2) or (hat:find("u") ~= nil) then
 				self.vy = -self.move_speed
 			end
-			if love.keyboard.isDown('down') then
+			if love.keyboard.isDown('down') or (ay > 0.2) or (hat:find("d") ~= nil) then
 				self.vy = self.vy + self.move_speed
 			end
 			self.vx = 0
-			if love.keyboard.isDown('left') then
+			if love.keyboard.isDown('left') or (ax < -0.2) or (hat:find("l") ~= nil) then
 				self.vx = -self.move_speed
 			end
-			if love.keyboard.isDown('right') then
+			if love.keyboard.isDown('right') or (ax > 0.2) or (hat:find("r") ~= nil) then
 				self.vx = self.vx + self.move_speed
 			end
 			if self.touches_ground then
 				self.vz = 0
-				if love.keyboard.isDown('z') then
+				if love.keyboard.isDown('z') or love.joystick.isDown(1, 1) then
 					self.vz = self.jump_speed
 					self.touches_ground = false
 					self.sounds.jump:rewind()
@@ -247,28 +260,7 @@ Dude = Class{
 	end,
 }
 
-Peasant = Class{
-	init = function(self, spritesheet, x, y, z)
-		self.spritesheet = spritesheet
-		local g = anim8.newGrid(32, 32, spritesheet:getWidth(), spritesheet:getHeight())
-		self.animations = {
-			walking = anim8.newAnimation(g('1-8',1), 0.05),
-			running = anim8.newAnimation(g('1-8',1), 0.05),
-			knocked_over = anim8.newAnimation(g('1-8',1), 0.1)
-		}
-		self.current_animation = self.animations.walking
-		self.x = x
-		self.y = y
-		self.z = z
-	end,
-	draw = function(self)
-		if self.visible == true then self.current_animation:draw(self.spritesheet, self.x, self.y) end
-	end,
-	update = function(self, dt)
-		self.current_animation:update(dt)
-	end,
-}
-
+local blank_blink_timer_cb = function(self) end
 Obstacle = Class{
 	init = function(self, obj, x, y, width, depth, height, offx, offy, spritesheet, animations, starting_animation)
 		obj.visible = false
@@ -279,7 +271,16 @@ Obstacle = Class{
 		self.width = width
 		self.depth = depth
 		self.height = height
+		self.active = true
 		self.visible = true
+		self.solid = true
+		self.blink_value = false
+		self.blink_timer = 0.0
+		self.blink_timer_cb = blank_blink_timer_cb
+		self.angle = 0
+		self.angle_v = 0
+		self.vx = 0
+		self.vy = 0
 		self.spritesheet = spritesheet
 		self.animations = animations
 		self.current_animation_name = starting_animation or 'default'
@@ -292,18 +293,40 @@ Obstacle = Class{
 			self.current_animation_name = anim_name
 		end
 	end,
-	collide_with_dude = function(self, dude)
+	collide_with_dude_test = function(self, dude)
 		local dx = dude.x + ((dude.y - dude.y_min) / 2)
 		return (dx > self.x) and (dx < (self.x+self.width)) and (dude.y > self.y) and (dude.y < (self.y + self.height))
 	end,
+	collide_with_dude = function (self, dude)
+		if self.active and self:collide_with_dude_test(dude) then
+			self.blink_timer_cb = function(self) self.visible = false; self.active = false; end
+			self.blink_timer = 2.0
+			self.angle_v = 2.0
+		end
+	end,
 	update = function(self, dt)
 		self.current_animation:update(dt)
+		self.angle = self.angle + (self.angle_v * dt)
+		self.blink_value = not self.blink_value
+		self.blink_timer = self.blink_timer - dt
+		self.x = self.x + (self.vx * dt)
+		self.y = self.y + (self.vy * dt)
+		if self.blink_timer <= 0.0 then
+			self.solid = true
+			self.blink_timer = 0.0
+			self:blink_timer_cb()
+			self.blink_timer_cb = blank_blink_timer_cb
+		end
 	end,
 	draw_before_dude = function(self, dude)
-		if (self.y <= dude.y) and self.visible then self.current_animation:draw(self.spritesheet, self.x + self.offx, self.y+self.offy) end
+		if (self.y <= dude.y) and self.visible and (self.solid or self.blink_value) then
+			self.current_animation:draw(self.spritesheet, self.x + self.offx, self.y+self.offy, self.angle)
+		end
 	end,
 	draw_after_dude = function(self, dude)
-		if (self.y > dude.y) and self.visible then self.current_animation:draw(self.spritesheet, self.x + self.offx, self.y+self.offy) end
+		if (self.y > dude.y) and self.visible and (self.solid or self.blink_value) then
+			self.current_animation:draw(self.spritesheet, self.x + self.offx, self.y+self.offy, self.angle)
+		end
 	end
 }
 
@@ -313,12 +336,32 @@ local tiles_grid = anim8.newGrid(32, 32, tiles_image:getWidth(), tiles_image:get
 VendingMachine = Class{
 	__includes = Obstacle,
 	init = function(self, obj, x, y)
+		local gid = obj.gid - 321
+		local gy = math.floor(gid / 10)+1
+		local gx = math.fmod(gid, 10)+1
+		
 		Obstacle.init(self, obj, x, y, 32, 16, 24, -16, -16, tiles_image, {
-				default = anim8.newAnimation(tiles_grid(1, 6), 1)
+				default = anim8.newAnimation(tiles_grid(gx, gy), 1)
 			}, 'default')
 	end,
 }
 
+Peasant = Class{
+	__includes = Obstacle,
+	init = function(self, obj, x, y)
+		local animations = {
+			walking = anim8.newAnimation(g('1-8',1), 0.05),
+			running = anim8.newAnimation(g('1-8',1), 0.05),
+			knocked_over = anim8.newAnimation(g('1-8',1), 0.1)
+		}
+	end,
+	draw = function(self)
+		if self.visible == true then self.current_animation:draw(self.spritesheet, self.x, self.y) end
+	end,
+	update = function(self, dt)
+		self.current_animation:update(dt)
+	end,
+}
 local dude = Dude()
 
 
@@ -438,6 +481,7 @@ Stage = Class{
 	end,
 	update = function(self, dt)
 		if self.state == 'init' then
+
 		end
 	end,
 	draw = function(self, camera)
@@ -536,6 +580,10 @@ function game:update(dt)
 	if self.state == 'active' then
 		if train.time <= 0 then
 			self.state = 'lost'
+		else
+			for i, obj in ipairs(self.stage.objects) do
+				obj:collide_with_dude(dude)
+			end
 		end
 	elseif train.vel >= 20 then
 		if self.state == 'in' then
@@ -549,6 +597,14 @@ end
 function game:keyreleased(key, scan)
 	if key == 'escape' then
 		GameState.switch(titlescreen)
+	end
+end
+function game:joystickpressed(joy, button)
+	io.stdout:write(string.format("btn: %d\n",button))
+	if joy == 1 then
+		if button == 8 then
+			GameState.push(pause)
+		end
 	end
 end
 
