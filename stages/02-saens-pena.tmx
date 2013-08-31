@@ -60,5 +60,14 @@
   <object type="VendingMachine" gid="372" x="486" y="227"/>
   <object type="VendingMachine" gid="373" x="1152" y="163"/>
   <object type="VendingMachine" gid="373" x="1415" y="253"/>
+  <object type="Chairs" gid="381" x="675" y="184"/>
+  <object type="Chairs" gid="381" x="915" y="136"/>
+  <object type="Chairs" gid="382" x="1070" y="255"/>
+  <object type="Chairs" gid="382" x="765" y="222"/>
+  <object type="Chairs" gid="382" x="11" y="251"/>
+  <object gid="382" x="365" y="254"/>
+  <object type="Chairs" gid="381" x="337" y="138"/>
+  <object gid="382" x="143" y="253"/>
+  <object type="Chairs" gid="381" x="180" y="137"/>
  </objectgroup>
 </map>

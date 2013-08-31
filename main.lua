@@ -117,6 +117,7 @@ Dude = Class{
 		y = y or 0
 		z = z or 0
 		self.spritesheet = love.graphics.newImage("gfx/dude/dude.png")
+		self.shadow = love.graphics.newImage("gfx/dude/shadow.png")
 		local g = anim8.newGrid(32, 32, self.spritesheet:getWidth(), self.spritesheet:getHeight())
 		self.animations = {
 			walking = anim8.newAnimation(g('1-4',1), 0.1),
@@ -159,7 +160,12 @@ Dude = Class{
 	end,
 	draw = function(self)
 		-- [player is offset in the x direction at half rate from y direction, to correct for perspective and still hit the correct tiles]
-		if self.visible and (self.solid or self.blink_value) then self.current_animation:draw(self.spritesheet, (self.x - 16) + ((self.y - self.y_min)/2) , self.y - 28 - self.z) end
+		if self.visible and (self.solid or self.blink_value) then 
+			love.graphics.setColor(255, 255, 255, 96)
+			love.graphics.draw(self.shadow, (self.x - 16) + ((self.y - self.y_min)/2) , self.y - 28)
+			love.graphics.setColor(255, 255, 255, 255)
+			self.current_animation:draw(self.spritesheet, (self.x - 16) + ((self.y - self.y_min)/2) , self.y - 28 - self.z)
+		end
 		self.blink_value = not self.blink_value
 	end,
 	set_animation = function(self, anim_name)
@@ -262,10 +268,12 @@ Dude = Class{
 
 local blank_blink_timer_cb = function(self) end
 Obstacle = Class{
-	init = function(self, obj, x, y, width, depth, height, offx, offy, spritesheet, animations, starting_animation)
+	init = function(self, obj, x, y, width, depth, height, offx, offy, sprite_center_x, sprite_center_y, spritesheet, animations, starting_animation)
 		obj.visible = false
 		self.x = x
 		self.y = y
+		self.sprcx = sprite_center_x
+		self.sprcy = sprite_center_y
 		self.offx = offx
 		self.offy = offy
 		self.width = width
@@ -299,9 +307,14 @@ Obstacle = Class{
 	end,
 	collide_with_dude = function (self, dude)
 		if self.active and self:collide_with_dude_test(dude) then
+			io.stdout:write("collided!")
 			self.blink_timer_cb = function(self) self.visible = false; self.active = false; end
 			self.blink_timer = 2.0
 			self.angle_v = 2.0
+			self.vx = dude.vvx
+			dude.out_of_control_timer = 2.0
+			dude.vvx = dude.vvx / 3
+			dude.solid = false
 		end
 	end,
 	update = function(self, dt)
@@ -320,12 +333,12 @@ Obstacle = Class{
 	end,
 	draw_before_dude = function(self, dude)
 		if (self.y <= dude.y) and self.visible and (self.solid or self.blink_value) then
-			self.current_animation:draw(self.spritesheet, self.x + self.offx, self.y+self.offy, self.angle)
+			self.current_animation:draw(self.spritesheet, self.x + self.offx, self.y+self.offy, self.angle, 1, 1, self.sprcx, self.sprcy)
 		end
 	end,
 	draw_after_dude = function(self, dude)
 		if (self.y > dude.y) and self.visible and (self.solid or self.blink_value) then
-			self.current_animation:draw(self.spritesheet, self.x + self.offx, self.y+self.offy, self.angle)
+			self.current_animation:draw(self.spritesheet, self.x + self.offx, self.y+self.offy, self.angle, 1, 1, self.sprcx, self.sprcy)
 		end
 	end
 }
@@ -340,7 +353,7 @@ VendingMachine = Class{
 		local gy = math.floor(gid / 10)+1
 		local gx = math.fmod(gid, 10)+1
 		
-		Obstacle.init(self, obj, x, y, 32, 16, 24, -16, -16, tiles_image, {
+		Obstacle.init(self, obj, x, y, 32, 16, 24, -16, -8, 16, 16, tiles_image, {
 				default = anim8.newAnimation(tiles_grid(gx, gy), 1)
 			}, 'default')
 	end,
@@ -571,6 +584,9 @@ end
 function game:update(dt)
 	dude:update(dt, self.stage, train)
 	train:update(dt)
+	for i, obj in ipairs(self.stage.objects) do
+		obj:update(dt)
+	end
 	if dude.inside_train then 
 		train.counter_running = false
 		self.state = 'in' 
