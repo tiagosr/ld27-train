@@ -18,4 +18,6 @@ function love.conf(t)
 	t.version = "0.8.0"
 	t.modules.physics = false
 	t.modules.mouse = false
+	t.screen.vsync = true
+	
 end

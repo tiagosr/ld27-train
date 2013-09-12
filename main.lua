@@ -152,6 +152,7 @@ Dude = Class{
 		self.visible = true
 
 		self.solid = true
+		self.fall = false
 		self.blink_value = true
 		
 		self.current_animation = self.animations.running
@@ -202,7 +203,6 @@ Dude = Class{
 				self.vx = self.vx + self.move_speed
 			end
 			if self.touches_ground then
-				self.vz = 0
 				if love.keyboard.isDown('z') or love.joystick.isDown(1, 1) then
 					self.vz = self.jump_speed
 					self.touches_ground = false
@@ -230,6 +230,7 @@ Dude = Class{
 
 			end
 			if self.active and self.touches_ground and (self.out_of_control_timer < 0.01) then
+				ground = true
 				self.vvx = self.vx + self.speed
 				self.vvy = self.vy
 				tx, ty = self:get_tile(stage)
@@ -239,6 +240,9 @@ Dude = Class{
 						self.vvx = self.vvx / 2
 						self.vvy = self.vvy / 2
 					end
+					if key == 'void' and self.touches_ground then
+						self.fall = true
+					end
 				end
 			end
 
@@ -246,7 +250,7 @@ Dude = Class{
 			self.y = self.y + (self.vvy * step)
 			self.z = self.z + (self.vz * step)
 			self.vz = self.vz - (self.gravity * step)
-			if self.z <= 0 then
+			if self.z <= 0 and not self.fall then
 				self.touches_ground = true
 				self.vz = 0
 				self.z = 0
@@ -307,9 +311,9 @@ Obstacle = Class{
 	end,
 	collide_with_dude = function (self, dude)
 		if self.active and self:collide_with_dude_test(dude) then
-			io.stdout:write("collided!")
 			self.blink_timer_cb = function(self) self.visible = false; self.active = false; end
 			self.blink_timer = 2.0
+			self.solid = false
 			self.angle_v = 2.0
 			self.vx = dude.vvx
 			dude.out_of_control_timer = 2.0
@@ -320,10 +324,10 @@ Obstacle = Class{
 	update = function(self, dt)
 		self.current_animation:update(dt)
 		self.angle = self.angle + (self.angle_v * dt)
-		self.blink_value = not self.blink_value
 		self.blink_timer = self.blink_timer - dt
 		self.x = self.x + (self.vx * dt)
 		self.y = self.y + (self.vy * dt)
+		self.blink_value = not self.blink_value
 		if self.blink_timer <= 0.0 then
 			self.solid = true
 			self.blink_timer = 0.0
