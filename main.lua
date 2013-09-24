@@ -16,6 +16,7 @@ GameState = require "hump.gamestate"
 Camera = require "hump.camera"
 Timer = require "hump.timer"
 Class = require "hump.class"
+FSM = require "state"
 
 local anim8 = require "anim8.anim8"
 
@@ -31,6 +32,7 @@ love.graphics.newImage = function(filename)
 	img:setFilter('nearest','nearest')
 	return img
 end
+
 
 --- game state declarations
 local titlescreen = {}
@@ -203,7 +205,7 @@ Dude = Class{
 				self.vx = self.vx + self.move_speed
 			end
 			if self.touches_ground then
-				if love.keyboard.isDown('z') or love.joystick.isDown(1, 1) then
+				if love.keyboard.isDown('z') or love.keyboard.isDown('space') or love.joystick.isDown(1, 1) then
 					self.vz = self.jump_speed
 					self.touches_ground = false
 					self.sounds.jump:rewind()
@@ -222,7 +224,7 @@ Dude = Class{
 					self.vvx = 0
 				end
 			elseif door_test == 'out' then
-				self.out_of_control_timer = 2
+				self.out_of_control_timer = 1.0
 				self.solid = false
 				self.vvx = -20
 				--self.inside_train = false
@@ -316,7 +318,8 @@ Obstacle = Class{
 			self.solid = false
 			self.angle_v = 2.0
 			self.vx = dude.vvx
-			dude.out_of_control_timer = 2.0
+			self.active = false
+			dude.out_of_control_timer = 1.0
 			dude.vvx = dude.vvx / 3
 			dude.solid = false
 		end
