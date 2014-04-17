@@ -1,4 +1,5 @@
 local Class = require "hump.class"
+local _ = require "underscore"
 
 local State = Class {
 	init = function(self, machine, name, parent, options)
@@ -22,6 +23,12 @@ local State = Class {
 	end,
 	update = function(self)
 		self:on_update()
+		_.each(self.transitions, function (transition)
+			if transition:condition() then
+				self.machine:transition_to(transition.to)
+				return false
+			end
+		end)
 	end,
 	transition_to = function(self, to)
 		return self.machine:transition_to(to)
@@ -39,7 +46,7 @@ local Transition = Class {
 	end,
 }
 
-FSM = Class {
+local FSM = Class {
 	init = function(self, options)
 		self.states = {}
 		self.current_state = options['initial'] or 'start'
@@ -49,16 +56,11 @@ FSM = Class {
 	end,
 	transition_to = function (self, to)
 		local current = self:get_current()
-		local trans = current.transitions[to]
-		if trans then
-			if trans:condition() then
-				current:exit(to)
-				local old = self.current_state
-				self.current_state = to
-				self:get_current():enter(old)
-				return true
-			end
-		end
+		local trans = self.states[to]
+		current:exit(to)
+		local old = self.current_state
+		self.current_state = to
+		self:get_current():enter(old)
 		return false
 	end,
 	get_current = function (self)
@@ -68,3 +70,5 @@ FSM = Class {
 		self:get_current():update()
 	end
 }
+
+return FSM

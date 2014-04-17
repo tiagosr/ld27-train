@@ -17,6 +17,7 @@ Camera = require "hump.camera"
 Timer = require "hump.timer"
 Class = require "hump.class"
 FSM = require "state"
+_ = require "underscore"
 
 local anim8 = require "anim8.anim8"
 
